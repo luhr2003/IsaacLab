@@ -573,7 +573,11 @@ while [[ $# -gt 0 ]]; do
             begin_arm_install_sandbox
 
             # install pytorch (version based on arch)
+<<<<<<< HEAD
             ensure_cuda_torch
+=======
+            # ensure_cuda_torch ${python_exe}
+>>>>>>> 97a28ef7aa (fix isaaclab uv bug)
             # recursively look into directories and install them
             # this does not check dependencies between extensions
             export -f extract_python_exe
@@ -603,7 +607,11 @@ while [[ $# -gt 0 ]]; do
 
             # in some rare cases, torch might not be installed properly by setup.py, add one more check here
             # can prevent that from happening
+<<<<<<< HEAD
             ensure_cuda_torch
+=======
+            # ensure_cuda_torch ${python_exe}
+>>>>>>> 97a28ef7aa (fix isaaclab uv bug)
 
             # restore LD_PRELOAD if we cleared it
             end_arm_install_sandbox
