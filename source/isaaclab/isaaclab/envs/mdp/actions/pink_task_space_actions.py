@@ -242,7 +242,14 @@ class PinkInverseKinematicsAction(ActionTerm):
 
         # Process controlled frame poses (pass original actions, no clone needed)
         controlled_frame_poses = self._extract_controlled_frame_poses(actions)
-        transformed_poses = self._transform_poses_to_base_link_frame(controlled_frame_poses)
+        
+        # NOTE(magics): We assume actions are already in the Base Link Frame (Pelvis) for LocalFrameTask.
+        # This bypasses the World-to-Base transformation to allow direct local control.
+        # If using standard FrameTask (World Frame), this would imply inputs are also in Local Frame 
+        # but interpreted as World Frame, which might be incorrect for mixed usage.
+        # But for G1 LocalFrameTask usage, this is the correct behavior for Body-relative control.
+        positions, rotation_matrices = math_utils.unmake_pose(controlled_frame_poses)
+        transformed_poses = (positions, rotation_matrices)
 
         # Set targets for all tasks
         self._set_task_targets(transformed_poses)
