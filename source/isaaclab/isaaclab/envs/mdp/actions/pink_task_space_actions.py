@@ -8,8 +8,11 @@ from __future__ import annotations
 import torch
 from collections.abc import Sequence
 from typing import TYPE_CHECKING
+from dataclasses import MISSING
 
 from pink.tasks import FrameTask
+
+from gymnasium import spaces
 
 import isaaclab.utils.math as math_utils
 from isaaclab.assets.articulation import Articulation
@@ -65,6 +68,13 @@ class PinkInverseKinematicsAction(ActionTerm):
         # Pre-allocate tensors for runtime use
         self._initialize_helper_tensors()
 
+        # Initialize action space
+        self._action_space = spaces.Box(
+            low=self.cfg.action_space[0].cpu().numpy(),
+            high=self.cfg.action_space[1].cpu().numpy(),
+            dtype=float,
+        )
+
     def _initialize_joint_info(self) -> None:
         """Initialize joint IDs and names based on configuration."""
         # Resolve pink controlled joints
@@ -75,8 +85,11 @@ class PinkInverseKinematicsAction(ActionTerm):
         self._isaaclab_all_joint_ids = list(range(len(self._asset.data.joint_names)))
         self.cfg.controller.all_joint_names = self._asset.data.joint_names
 
-        # Resolve hand joints
-        self._hand_joint_ids, self._hand_joint_names = self._asset.find_joints(self.cfg.hand_joint_names)
+        # Resolve hand joints (optional)
+        if self.cfg.hand_joint_names not in (None, MISSING):
+            self._hand_joint_ids, self._hand_joint_names = self._asset.find_joints(self.cfg.hand_joint_names)
+        else:
+            self._hand_joint_ids, self._hand_joint_names = [], []
 
         # Combine all joint information
         self._controlled_joint_ids = self._isaaclab_controlled_joint_ids + self._hand_joint_ids
@@ -87,11 +100,27 @@ class PinkInverseKinematicsAction(ActionTerm):
         assert self._env.num_envs > 0, "Number of environments specified are less than 1."
 
         self._ik_controllers = []
+        robot_cfg = self._asset.cfg
         for _ in range(self._env.num_envs):
+            controller_cfg = self.cfg.controller.copy()
+            # If urdf_path is not specified in controller config, try to get it from various sources
+            if controller_cfg.urdf_path is None:
+                # 1. Try to get from asset configuration
+                if hasattr(robot_cfg, "urdf_path"):
+                    controller_cfg.urdf_path = robot_cfg.urdf_path
+                # 2. Try to get from spawn configuration if it's a UsdFileCfg (common in IsaacLab)
+                elif hasattr(robot_cfg.spawn, "urdf_path"):
+                     controller_cfg.urdf_path = robot_cfg.spawn.urdf_path
+                # 3. Try to infer from G1 specific configs if available
+                # Note: This is a fallback for G1 robot specific structure
+                elif hasattr(robot_cfg, "spawn") and hasattr(robot_cfg.spawn, "usd_path") and "g1" in str(robot_cfg.spawn.usd_path).lower():
+                     # Attempt to find URDF in expected location relative to asset root or known path
+                     pass 
+
             self._ik_controllers.append(
                 PinkIKController(
-                    cfg=self.cfg.controller.copy(),
-                    robot_cfg=self._env.scene.cfg.robot,
+                    cfg=controller_cfg,
+                    robot_cfg=robot_cfg,
                     device=self.device,
                     controlled_joint_indices=self._isaaclab_controlled_joint_ids,
                 )
@@ -159,6 +188,11 @@ class PinkInverseKinematicsAction(ActionTerm):
         return self._processed_actions
 
     @property
+    def action_space(self) -> spaces.Box:
+        """Get the action space."""
+        return self._action_space
+
+    @property
     def IO_descriptor(self) -> GenericActionIODescriptor:
         """The IO descriptor of the action term.
 
@@ -197,7 +231,11 @@ class PinkInverseKinematicsAction(ActionTerm):
         self._raw_actions[:] = actions
 
         # Extract hand joint positions directly (no cloning needed)
-        self._target_hand_joint_positions = actions[:, -self.hand_joint_dim :]
+        # Handle case when hand_joint_dim = 0: -0 is same as 0, so slice would be whole tensor
+        if self.hand_joint_dim > 0:
+            self._target_hand_joint_positions = actions[:, -self.hand_joint_dim :]
+        else:
+            self._target_hand_joint_positions = torch.zeros((actions.shape[0], 0), device=self.device)
 
         # Get base link frame transformation
         self.base_link_frame_in_world_rf = self._get_base_link_frame_transform()
@@ -309,8 +347,11 @@ class PinkInverseKinematicsAction(ActionTerm):
         # Compute IK solutions for all environments
         ik_joint_positions = self._compute_ik_solutions()
 
-        # Combine IK and hand joint positions
-        all_joint_positions = torch.cat((ik_joint_positions, self._target_hand_joint_positions), dim=1)
+        # Combine IK and hand joint positions (only if hand joints exist)
+        if self.hand_joint_dim > 0:
+            all_joint_positions = torch.cat((ik_joint_positions, self._target_hand_joint_positions), dim=1)
+        else:
+            all_joint_positions = ik_joint_positions
         self._processed_actions = all_joint_positions
 
         # Apply gravity compensation to arm joints

@@ -4,6 +4,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 from dataclasses import MISSING
+import torch
 
 from isaaclab.controllers.pink_ik import PinkIKControllerCfg
 from isaaclab.managers.action_manager import ActionTerm, ActionTermCfg
@@ -40,4 +41,10 @@ class PinkInverseKinematicsActionCfg(ActionTermCfg):
 
     This dictionary should map the task names (e.g., 'left_wrist', 'right_wrist') to the
     corresponding link names in the URDF that will be controlled by the IK solver.
+    """
+
+    action_space: torch.Tensor = MISSING
+    """The action space for the action term. Should be a tuple of (low, high) or a list of such tuples.
+    If a list is provided, it should have the same length as the action dimension.
+    This defines the valid range for the end-effector poses (and hand joints if present).
     """
