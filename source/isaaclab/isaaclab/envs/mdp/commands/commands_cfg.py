@@ -14,7 +14,7 @@ from isaaclab.utils import configclass
 from .null_command import NullCommand
 from .pose_2d_command import TerrainBasedPose2dCommand, UniformPose2dCommand
 from .pose_command import UniformPoseCommand
-from .velocity_command import NormalVelocityCommand, UniformVelocityCommand
+from .velocity_command import NormalVelocityCommand, UniformHeightCommand, UniformVelocityCommand
 
 
 @configclass
@@ -127,6 +127,35 @@ class NormalVelocityCommandCfg(UniformVelocityCommandCfg):
 
     ranges: Ranges = MISSING
     """Distribution ranges for the velocity commands."""
+
+
+@configclass
+class UniformHeightCommandCfg(CommandTermCfg):
+    """Configuration for the uniform height command generator."""
+
+    class_type: type = UniformHeightCommand
+
+    asset_name: str = MISSING
+    """Name of the asset in the environment for which the commands are generated."""
+
+    rel_squat_envs: float = 0.33
+    """The sampled probability of environments that should train squatting behavior. Defaults to 0.33.
+    
+    This means 1/3 of environments will train squatting while 2/3 focus on walking/standing.
+    """
+
+    default_standing_height: float = 0.74
+    """Default standing height for non-squat environments (in m). Defaults to 0.74."""
+
+    @configclass
+    class Ranges:
+        """Uniform distribution ranges for the height commands."""
+
+        height: tuple[float, float] = MISSING
+        """Range for the base height command (in m)."""
+
+    ranges: Ranges = MISSING
+    """Distribution ranges for the height commands."""
 
 
 @configclass

@@ -7,11 +7,10 @@
 
 from __future__ import annotations
 
+import logging
 import torch
 from collections.abc import Sequence
 from typing import TYPE_CHECKING
-
-import omni.log
 
 import isaaclab.utils.math as math_utils
 from isaaclab.assets import Articulation
@@ -21,7 +20,10 @@ from isaaclab.markers import VisualizationMarkers
 if TYPE_CHECKING:
     from isaaclab.envs import ManagerBasedEnv
 
-    from .commands_cfg import NormalVelocityCommandCfg, UniformVelocityCommandCfg
+    from .commands_cfg import NormalVelocityCommandCfg, UniformHeightCommandCfg, UniformVelocityCommandCfg
+
+# import logger
+logger = logging.getLogger(__name__)
 
 
 class UniformVelocityCommand(CommandTerm):
@@ -65,7 +67,7 @@ class UniformVelocityCommand(CommandTerm):
                 " parameter is set to None."
             )
         if self.cfg.ranges.heading and not self.cfg.heading_command:
-            omni.log.warn(
+            logger.warning(
                 f"The velocity command has the 'ranges.heading' attribute set to '{self.cfg.ranges.heading}'"
                 " but the heading command is not active. Consider setting the flag for the heading command to True."
             )
@@ -285,3 +287,94 @@ class NormalVelocityCommand(UniformVelocityCommand):
         self.vel_command_b[zero_vel_x_env_ids, 0] = 0.0
         self.vel_command_b[zero_vel_y_env_ids, 1] = 0.0
         self.vel_command_b[zero_vel_yaw_env_ids, 2] = 0.0
+
+
+class UniformHeightCommand(CommandTerm):
+    r"""Command generator that generates a height command from uniform distribution.
+
+    The command comprises of a target base height. It is used to train robots to squat
+    to different heights, expanding the feasible operational workspace.
+
+    The command is resampled periodically, and a fraction of environments can be
+    selected to train squatting behavior while others focus on walking.
+    """
+
+    cfg: "UniformHeightCommandCfg"
+    """The configuration of the command generator."""
+
+    def __init__(self, cfg: "UniformHeightCommandCfg", env: ManagerBasedEnv):
+        """Initialize the command generator.
+
+        Args:
+            cfg: The configuration of the command generator.
+            env: The environment.
+        """
+        # initialize the base class
+        super().__init__(cfg, env)
+
+        # obtain the robot asset
+        self.robot: Articulation = env.scene[cfg.asset_name]
+
+        # create buffers to store the command
+        # -- command: target height
+        self.height_command = torch.zeros(self.num_envs, device=self.device)
+        self.is_squat_env = torch.zeros(self.num_envs, dtype=torch.bool, device=self.device)
+        # -- metrics
+        self.metrics["error_height"] = torch.zeros(self.num_envs, device=self.device)
+
+    def __str__(self) -> str:
+        """Return a string representation of the command generator."""
+        msg = "UniformHeightCommand:\n"
+        msg += f"\tCommand dimension: {tuple(self.command.shape[1:])}\n"
+        msg += f"\tResampling time range: {self.cfg.resampling_time_range}\n"
+        msg += f"\tSquat probability: {self.cfg.rel_squat_envs}"
+        return msg
+
+    """
+    Properties
+    """
+
+    @property
+    def command(self) -> torch.Tensor:
+        """The desired base height command. Shape is (num_envs,)."""
+        return self.height_command
+
+    """
+    Implementation specific functions.
+    """
+
+    def _update_metrics(self):
+        # time for which the command was executed
+        max_command_time = self.cfg.resampling_time_range[1]
+        max_command_step = max_command_time / self._env.step_dt
+        # logs data
+        current_height = self.robot.data.root_pos_w[:, 2]
+        self.metrics["error_height"] += (
+            torch.abs(self.height_command - current_height) / max_command_step
+        )
+
+    def _resample_command(self, env_ids: Sequence[int]):
+        # sample height commands
+        r = torch.empty(len(env_ids), device=self.device)
+        # -- height command
+        self.height_command[env_ids] = r.uniform_(*self.cfg.ranges.height)
+        # update squat envs (1/3 of environments train squatting)
+        self.is_squat_env[env_ids] = r.uniform_(0.0, 1.0) <= self.cfg.rel_squat_envs
+
+    def _update_command(self):
+        """Post-processes the height command.
+
+        This function sets height command to default standing height for non-squat environments.
+        """
+        # For non-squat environments, set height to default standing height
+        non_squat_env_ids = (~self.is_squat_env).nonzero(as_tuple=False).flatten()
+        if len(non_squat_env_ids) > 0:
+            self.height_command[non_squat_env_ids] = self.cfg.default_standing_height
+
+    def _set_debug_vis_impl(self, debug_vis: bool):
+        # Height command visualization can be added here if needed
+        pass
+
+    def _debug_vis_callback(self, event):
+        # Height command visualization can be added here if needed
+        pass
