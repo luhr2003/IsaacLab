@@ -106,11 +106,11 @@ class CommandsCfg:
 
     base_height = mdp.UniformHeightCommandCfg(
         asset_name="robot",
-        resampling_time_range=(4.0, 4.0),  # Resample every 4 seconds as mentioned in the paper
-        rel_squat_envs=0.33,  # 1/3 of environments train squatting, 2/3 train walking/standing
+        resampling_time_range=(1.0, 4.0),  # Resample every 4 seconds as mentioned in the paper
+        rel_squat_envs=0.9,  # 1/3 of environments train squatting, 2/3 train walking/standing
         default_standing_height=0.3,  # Default standing height in meters
         ranges=mdp.UniformHeightCommandCfg.Ranges(
-            height=(0.2, 0.4),  # Height range for squatting (adjust based on robot)
+            height=(0.1, 0.5),  # Height range for squatting (adjust based on robot)
         ),
     )
 
@@ -250,14 +250,28 @@ class RewardsCfg:
         func=mdp.track_ang_vel_z_exp, weight=0.5, params={"command_name": "base_velocity", "std": math.sqrt(0.25)}
     )
     # -- height tracking rewards
+    # Main height tracking reward with tighter std for better sensitivity
     track_base_height_exp = RewTerm(
         func=mdp.track_base_height_exp,
-        weight=1.0,
-        params={"command_name": "base_height", "std": math.sqrt(0.1)},
+        weight=2.0,  # Increased weight
+        params={"command_name": "base_height", "std": math.sqrt(0.05)},  # Reduced std from 0.1 to 0.05 for better sensitivity
+    )
+    # L2 penalty for height error (encourages faster response)
+    # Note: Function returns -height_error (negative), so positive weight = penalty
+    track_base_height_l2 = RewTerm(
+        func=mdp.track_base_height_l2,
+        weight=-0.1,  # Strong penalty for height errors (positive because function returns negative)
+        params={"command_name": "base_height"},
+    )
+    # Reward for moving towards target height (encourages quick response)
+    track_base_height_velocity = RewTerm(
+        func=mdp.track_base_height_velocity,
+        weight=1.0,  # Reward correct direction of movement
+        params={"command_name": "base_height"},
     )
     track_height_knee = RewTerm(
         func=mdp.track_height_knee_reward,
-        weight=1.0,
+        weight=1.5,  # Increased weight
         params={
             "command_name": "base_height",
             "knee_joint_names": [".*_knee_joint"],  # Adjust based on your robot's knee joint naming

@@ -137,6 +137,45 @@ def track_base_height_exp(
     return torch.exp(-height_error / std**2)
 
 
+def track_base_height_l2(
+    env: ManagerBasedRLEnv, command_name: str, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")
+) -> torch.Tensor:
+    """Penalty for height tracking error using L2 norm.
+    
+    This provides a more direct penalty for height errors, encouraging faster response.
+    """
+    asset = env.scene[asset_cfg.name]
+    current_height = asset.data.root_pos_w[:, 2]
+    target_height = env.command_manager.get_command(command_name)
+    height_error = torch.square(target_height - current_height)
+    return height_error  # Negative because it's a penalty
+
+
+def track_base_height_velocity(
+    env: ManagerBasedRLEnv, command_name: str, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")
+) -> torch.Tensor:
+    """Reward for moving towards target height quickly.
+    
+    This reward encourages the robot to change height in the correct direction
+    by rewarding vertical velocity that reduces height error.
+    """
+    asset = env.scene[asset_cfg.name]
+    current_height = asset.data.root_pos_w[:, 2]
+    target_height = env.command_manager.get_command(command_name)
+    height_error = target_height - current_height  # Positive when need to go up
+    
+    # Vertical velocity (positive = going up)
+    vertical_vel = asset.data.root_lin_vel_w[:, 2]
+    
+    # Reward moving in the correct direction
+    # If error > 0 (need to go up), reward positive velocity
+    # If error < 0 (need to go down), reward negative velocity
+    direction_reward = height_error * vertical_vel
+    
+    # Scale by error magnitude to encourage faster response when error is large
+    return direction_reward * torch.abs(height_error)
+
+
 def track_height_knee_reward(
     env: ManagerBasedRLEnv,
     command_name: str,

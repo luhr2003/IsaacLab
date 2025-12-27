@@ -10,7 +10,7 @@ from isaaclab_rl.rsl_rl import RslRlOnPolicyRunnerCfg, RslRlPpoActorCriticCfg, R
 
 @configclass
 class UnitreeGo2RoughPPORunnerCfg(RslRlOnPolicyRunnerCfg):
-    num_steps_per_env = 300
+    num_steps_per_env = 150
     max_iterations = 1500
     save_interval = 50
     experiment_name = "unitree_go2_rough"
@@ -45,6 +45,6 @@ class UnitreeGo2FlatPPORunnerCfg(UnitreeGo2RoughPPORunnerCfg):
 
         self.max_iterations = 30000
         self.experiment_name = "unitree_go2_flat"
-        self.save_interval = 1000  # 可以在这里覆盖父类的 save_interval
+        self.save_interval = 200  # 可以在这里覆盖父类的 save_interval
         self.policy.actor_hidden_dims = [512, 256, 128]
         self.policy.critic_hidden_dims = [512, 256, 128]
