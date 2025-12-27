@@ -674,6 +674,27 @@ def generated_commands(env: ManagerBasedRLEnv, command_name: str | None = None) 
     return env.command_manager.get_command(command_name)
 
 
+@generic_io_descriptor(dtype=torch.float32, observation_type="Command", on_inspect=[record_shape])
+def height_command(env: ManagerBasedRLEnv, command_name: str | None = None) -> torch.Tensor:
+    """The height command from command term, expanded to (num_envs, 1) shape.
+    
+    This function wraps the generated_commands function to ensure the height command
+    has the correct shape for concatenation with other observation terms.
+    
+    Args:
+        env: The environment.
+        command_name: Name of the height command term.
+    
+    Returns:
+        The height command tensor with shape (num_envs, 1).
+    """
+    height_cmd = env.command_manager.get_command(command_name)
+    # Ensure the command has shape (num_envs, 1) instead of (num_envs,)
+    if height_cmd.dim() == 1:
+        height_cmd = height_cmd.unsqueeze(-1)
+    return height_cmd
+
+
 """
 Time.
 """
