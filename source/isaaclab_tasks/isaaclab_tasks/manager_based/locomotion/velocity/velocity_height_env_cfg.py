@@ -253,25 +253,20 @@ class RewardsCfg:
     # Main height tracking reward with tighter std for better sensitivity
     track_base_height_exp = RewTerm(
         func=mdp.track_base_height_exp,
-        weight=2.0,  # Increased weight
+        weight=2.5,  # Increased weight for better height tracking
         params={"command_name": "base_height", "std": math.sqrt(0.05)},  # Reduced std from 0.1 to 0.05 for better sensitivity
     )
     # L2 penalty for height error (encourages faster response)
-    # Note: Function returns -height_error (negative), so positive weight = penalty
+    # Function returns squared height error, so negative weight = penalty
     track_base_height_l2 = RewTerm(
         func=mdp.track_base_height_l2,
-        weight=-0.1,  # Strong penalty for height errors (positive because function returns negative)
+        weight=-2.0,  # Increased penalty strength for height errors (was -0.1, too weak)
         params={"command_name": "base_height"},
     )
     # Reward for moving towards target height (encourages quick response)
-    track_base_height_velocity = RewTerm(
-        func=mdp.track_base_height_velocity,
-        weight=1.0,  # Reward correct direction of movement
-        params={"command_name": "base_height"},
-    )
     track_height_knee = RewTerm(
         func=mdp.track_height_knee_reward,
-        weight=1.5,  # Increased weight
+        weight=2.0,  # Increased weight to encourage proper knee flexion/extension
         params={
             "command_name": "base_height",
             "knee_joint_names": [".*_knee_joint"],  # Adjust based on your robot's knee joint naming
