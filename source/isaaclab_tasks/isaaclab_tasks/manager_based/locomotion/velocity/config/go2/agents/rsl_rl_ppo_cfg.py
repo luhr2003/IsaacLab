@@ -48,3 +48,21 @@ class UnitreeGo2FlatPPORunnerCfg(UnitreeGo2RoughPPORunnerCfg):
         self.save_interval = 200  # 可以在这里覆盖父类的 save_interval
         self.policy.actor_hidden_dims = [512, 256, 128]
         self.policy.critic_hidden_dims = [512, 256, 128]
+
+
+@configclass
+class UnitreeGo2StandSquatPPORunnerCfg(UnitreeGo2FlatPPORunnerCfg):
+    """PPO runner config for stand+squat (separate experiment name for clean logs)."""
+
+    def __post_init__(self):
+        super().__post_init__()
+        self.experiment_name = "unitree_go2_stand_squat"
+
+
+@configclass
+class UnitreeGo2HybridHeightPPORunnerCfg(UnitreeGo2FlatPPORunnerCfg):
+    """PPO runner config for hybrid walk/stand/squat with embedded height command."""
+
+    def __post_init__(self):
+        super().__post_init__()
+        self.experiment_name = "unitree_go2_hybrid_velocity_height"

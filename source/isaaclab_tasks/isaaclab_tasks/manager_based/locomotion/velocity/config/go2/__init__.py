@@ -98,3 +98,47 @@ gym.register(
         "skrl_cfg_entry_point": f"{agents.__name__}:skrl_rough_ppo_cfg.yaml",
     },
 )
+
+gym.register(
+    id="Isaac-Velocity-Flat-Unitree-Go2-StandSquat-v0",
+    entry_point="isaaclab.envs:ManagerBasedRLEnv",
+    disable_env_checker=True,
+    kwargs={
+        "env_cfg_entry_point": f"{__name__}.stand_squat_height_env_cfg:UnitreeGo2FlatStandSquatHeightEnvCfg",
+        "rsl_rl_cfg_entry_point": f"{agents.__name__}.rsl_rl_ppo_cfg:UnitreeGo2StandSquatPPORunnerCfg",
+        "skrl_cfg_entry_point": f"{agents.__name__}:skrl_flat_ppo_cfg.yaml",
+    },
+)
+
+gym.register(
+    id="Isaac-Velocity-Flat-Unitree-Go2-StandSquat-Play-v0",
+    entry_point="isaaclab.envs:ManagerBasedRLEnv",
+    disable_env_checker=True,
+    kwargs={
+        "env_cfg_entry_point": f"{__name__}.stand_squat_height_env_cfg:UnitreeGo2FlatStandSquatHeightEnvCfg_PLAY",
+        "rsl_rl_cfg_entry_point": f"{agents.__name__}.rsl_rl_ppo_cfg:UnitreeGo2StandSquatPPORunnerCfg",
+        "skrl_cfg_entry_point": f"{agents.__name__}:skrl_flat_ppo_cfg.yaml",
+    },
+)
+
+gym.register(
+    id="Isaac-Velocity-Flat-Unitree-Go2-Hybrid-VelocityHeight-v0",
+    entry_point="isaaclab.envs:ManagerBasedRLEnv",
+    disable_env_checker=True,
+    kwargs={
+        "env_cfg_entry_point": f"{__name__}.hybrid_velocity_height_env_cfg:UnitreeGo2FlatHybridVelocityHeightEnvCfg",
+        "rsl_rl_cfg_entry_point": f"{agents.__name__}.rsl_rl_ppo_cfg:UnitreeGo2HybridHeightPPORunnerCfg",
+        "skrl_cfg_entry_point": f"{agents.__name__}:skrl_flat_ppo_cfg.yaml",
+    },
+)
+
+gym.register(
+    id="Isaac-Velocity-Flat-Unitree-Go2-Hybrid-VelocityHeight-Play-v0",
+    entry_point="isaaclab.envs:ManagerBasedRLEnv",
+    disable_env_checker=True,
+    kwargs={
+        "env_cfg_entry_point": f"{__name__}.hybrid_velocity_height_env_cfg:UnitreeGo2FlatHybridVelocityHeightEnvCfg_PLAY",
+        "rsl_rl_cfg_entry_point": f"{agents.__name__}.rsl_rl_ppo_cfg:UnitreeGo2HybridHeightPPORunnerCfg",
+        "skrl_cfg_entry_point": f"{agents.__name__}:skrl_flat_ppo_cfg.yaml",
+    },
+)

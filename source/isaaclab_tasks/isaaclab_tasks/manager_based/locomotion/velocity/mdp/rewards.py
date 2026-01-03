@@ -176,6 +176,75 @@ def track_base_height_velocity(
     return direction_reward * torch.abs(height_error)
 
 
+def track_base_height_exp_from_command(
+    env: ManagerBasedRLEnv, std: float, command_name: str, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")
+) -> torch.Tensor:
+    """Height tracking reward when height is embedded in a hybrid command vector.
+
+    Assumes command shape is (num_envs, 4): [vx, vy, yaw_rate, height].
+    """
+    asset = env.scene[asset_cfg.name]
+    current_height = asset.data.root_pos_w[:, 2]
+    cmd = env.command_manager.get_command(command_name)
+    target_height = cmd[:, 3]
+    height_error = torch.square(target_height - current_height)
+    return torch.exp(-height_error / std**2)
+
+
+def track_base_height_l2_from_command(
+    env: ManagerBasedRLEnv, command_name: str, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")
+) -> torch.Tensor:
+    """Height tracking L2 penalty when height is embedded in a hybrid command vector."""
+    asset = env.scene[asset_cfg.name]
+    current_height = asset.data.root_pos_w[:, 2]
+    cmd = env.command_manager.get_command(command_name)
+    target_height = cmd[:, 3]
+    return torch.square(target_height - current_height)
+
+
+def track_base_height_velocity_from_command(
+    env: ManagerBasedRLEnv, command_name: str, asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")
+) -> torch.Tensor:
+    """Directional height-velocity reward when height is embedded in a hybrid command vector."""
+    asset = env.scene[asset_cfg.name]
+    current_height = asset.data.root_pos_w[:, 2]
+    cmd = env.command_manager.get_command(command_name)
+    target_height = cmd[:, 3]
+    height_error = target_height - current_height
+    vertical_vel = asset.data.root_lin_vel_w[:, 2]
+    direction_reward = height_error * vertical_vel
+    return direction_reward * torch.abs(height_error)
+
+
+def track_height_knee_reward_from_command(
+    env: ManagerBasedRLEnv,
+    command_name: str,
+    knee_joint_names: list[str],
+    asset_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
+) -> torch.Tensor:
+    """Knee shaping reward when height is embedded in a hybrid command vector."""
+    asset = env.scene[asset_cfg.name]
+    current_height = asset.data.root_pos_w[:, 2]
+    cmd = env.command_manager.get_command(command_name)
+    target_height = cmd[:, 3]
+
+    # find knee joint indices using string matching utilities
+    knee_joint_ids, _ = string_utils.resolve_matching_names(knee_joint_names, asset.joint_names)
+    if len(knee_joint_ids) == 0:
+        raise ValueError(f"No knee joints found for the following joint names: {knee_joint_names}")
+
+    knee_pos = asset.data.joint_pos[:, knee_joint_ids]
+    knee_pos_limits = asset.data.default_joint_pos_limits[:, knee_joint_ids]
+    knee_min = knee_pos_limits[:, :, 0]
+    knee_max = knee_pos_limits[:, :, 1]
+    knee_range = torch.clamp(knee_max - knee_min, min=1e-6)
+    normalized_knee = (knee_pos - knee_min) / knee_range - 0.5
+
+    height_error = current_height - target_height
+    reward_term = height_error.unsqueeze(-1) * normalized_knee
+    return -torch.mean(torch.abs(reward_term), dim=1)
+
+
 def track_height_knee_reward(
     env: ManagerBasedRLEnv,
     command_name: str,

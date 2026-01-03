@@ -6,13 +6,24 @@
 from isaaclab.utils import configclass
 
 from .rough_height_env_cfg import UnitreeGo2RoughHeightEnvCfg
+from .unified_obs_cfg import Go2UnifiedObservationsCfg
 
 
 @configclass
 class UnitreeGo2FlatHeightEnvCfg(UnitreeGo2RoughHeightEnvCfg):
+    # make observations identical to other Go2 velocity/height tasks (order + dimension)
+    observations: Go2UnifiedObservationsCfg = Go2UnifiedObservationsCfg()
+
     def __post_init__(self):
         # post init of parent
         super().__post_init__()
+
+        # no heading control: use direct yaw-rate (rz) control via ang_vel_z
+        self.commands.base_velocity.heading_command = False
+        self.commands.base_velocity.rel_heading_envs = 0.0
+        self.commands.base_velocity.heading_control_stiffness = 0.0
+        # remove heading range to avoid warnings when heading_command=False
+        self.commands.base_velocity.ranges.heading = None
 
         # override rewards
         self.rewards.flat_orientation_l2.weight = -2.5
@@ -23,7 +34,6 @@ class UnitreeGo2FlatHeightEnvCfg(UnitreeGo2RoughHeightEnvCfg):
         self.scene.terrain.terrain_generator = None
         # no height scan
         self.scene.height_scanner = None
-        self.observations.policy.height_scan = None
         # no terrain curriculum
         self.curriculum.terrain_levels = None
 
